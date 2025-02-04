@@ -23,6 +23,8 @@ import javax.crypto.KeyGenerator;
 import javax.crypto.SecretKey;
 import javax.crypto.spec.GCMParameterSpec;
 import org.json.JSONArray;
+import java.security.Security;
+import java.security.Provider;
 
 interface StorageOp {
   void run() throws KeyStoreException, GeneralSecurityException, IOException;
@@ -339,8 +341,21 @@ public class SecureStorage extends Plugin {
 
   private KeyStore getKeyStore() throws GeneralSecurityException, IOException {
     if (keyStore == null) {
-      keyStore = KeyStore.getInstance(ANDROID_KEY_STORE);
-      keyStore.load(null);
+        try {
+            // Check if AndroidKeyStore provider is available
+            Provider provider = Security.getProvider(ANDROID_KEY_STORE);
+
+            if (provider == null) {
+                throw new SecurityException("AndroidKeyStore security provider is not available");
+            }
+            android.util.Log.d("SecureStorage", "AndroidKeyStore provider available: " + provider.getName());
+            keyStore = KeyStore.getInstance(ANDROID_KEY_STORE);
+            keyStore.load(null);
+        } catch (java.security.KeyStoreException e) {
+            throw new GeneralSecurityException(e);
+        } catch (Exception e) {
+            throw new GeneralSecurityException("Failed to initialize KeyStore: " + e.getMessage(), e);
+        }
     }
 
     return keyStore;
